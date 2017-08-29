@@ -103,3 +103,4 @@ ENV/
 *.pickle
 *.gz
 notMNIST_small
+notMNIST_large
