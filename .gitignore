@@ -102,5 +102,9 @@ ENV/
 
 *.pickle
 *.gz
-notMNIST_small
-notMNIST_large
+*notMNIST_small*
+*notMNIST_large*
+*test_data.tfrecords
+*train_data.tfrecords
+*valid_data.tfrecords
+*.idea

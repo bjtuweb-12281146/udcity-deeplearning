@@ -1,24 +1,33 @@
 import os
-from six.moves.urllib.request import urlretrieve
+from urllib.request import urlretrieve
 import sys
 import tarfile
 # import matplotlib.pyplot as plt
 import numpy as np
 from scipy import ndimage
 import tensorflow as tf
+import pdb
 
+FLAGS = tf.flags.FLAGS
+
+
+train_tfrecords_name = "train_data.tfrecords"
+valid_tfrecords_name = "valid_data.tfrecords"
+test_tfrecords_name = "test_data.tfrecords"
+image_data_type = np.float32
+
+last_percent_reported = None
 
 url = 'https://commondatastorage.googleapis.com/books1000/'
-last_percent_reported = None
 data_root = '.' # Change me to store data elsewhere
 
 def download_progress_hook(count, blockSize, totalSize):
   """A hook to report the progress of a download. This is mostly intended for users with
   slow internet connections. Reports every 5% change in download progress.
   """
-  global last_percent_reported
   percent = int(count * blockSize * 100 / totalSize)
 
+  global last_percent_reported
   if last_percent_reported != percent:
     if percent % 5 == 0:
       sys.stdout.write("%s%%" % percent)
@@ -26,7 +35,6 @@ def download_progress_hook(count, blockSize, totalSize):
     else:
       sys.stdout.write(".")
       sys.stdout.flush()
-
     last_percent_reported = percent
 
 def maybe_download(filename, expected_bytes, force=False):
@@ -74,16 +82,17 @@ def maybe_extract(filename, force=False):
 
 def load_letter(folder,label,image_size=28,sample_num=-1):
   """Load the data for a single letter label."""
+
   image_files = os.listdir(folder)
   dataset = np.ndarray(shape=(len(image_files), image_size, image_size),
-                         dtype=np.float32)
+                         dtype=image_data_type)
   num_images = 0
   if sample_num == -1:
       sample_num = len(image_files)
   for image in image_files:
     image_file = os.path.join(folder, image)
     try:
-      image_data = ndimage.imread(image_file).astype(float)
+      image_data = ndimage.imread(image_file).astype(image_data_type)
       if image_data.shape != (image_size, image_size):
         raise Exception('Unexpected image shape: %s' % str(image_data.shape))
       dataset[num_images, :, :] = image_data
@@ -134,11 +143,13 @@ def convert_to(data_set, data_set_label, name):
         'width': _int64_feature(cols),
         'label': _int64_feature(data_set_label[index]),
         'image_raw': _bytes_feature(image_raw)}))
+    if ((index+1) % 100) == 0:
+        print("covert number: {}".format(index+1))
     writer.write(example.SerializeToString())
   writer.close()
 
 
-def convert_back(file_name)
+def convert_back(file_name):
     """
     target:
     convert a tfrecods without difining a graph. for test purpose
@@ -154,23 +165,24 @@ def convert_back(file_name)
     for record in record_iterator:
         example = tf.train.Example()
         example.ParseFromString(record)
-        height = int(example.features['height'].int64_list.value[0])
-        width = int(example.features['width'].int64_list.value[0])
-        label = int(example.features['label'].int64_list.value[0])
-        image_raw = example.features['image_raw'].bytes_list.value[0]
+        height = int(example.features.feature['height'].int64_list.value[0])
+        width = int(example.features.feature['width'].int64_list.value[0])
+        width = int(example.features.feature['width'].int64_list.value[0])
+        label = int(example.features.feature['label'].int64_list.value[0])
+        image_raw = example.features.feature['image_raw'].bytes_list.value[0]
 
-        img_1d = np.fromstring(image_raw,dtype=np.uint8)
-        img = img_1d.reshape((height,width))
-        if constructed_data == None:
+        img_1d = np.fromstring(image_raw,dtype=image_data_type)
+        img = img_1d.reshape((1,height,width))
+        if not isinstance(constructed_data,np.ndarray):
             constructed_data = img
             constructed_label = np.array(label)
         else:
-            np.concatenate([constructed_data,img])
-            np.append(constructed_label,label)
+            constructed_data=np.concatenate([constructed_data,img])
+            constructed_label=np.append(constructed_label,label)
     return constructed_data,constructed_label
 
+def make_tfrecords(sample_num=-1, force=False):
 
-def make_tfrecords():
     # Download data
     train_filename = maybe_download('notMNIST_large.tar.gz', 247336696)
     test_filename = maybe_download('notMNIST_small.tar.gz', 8458043)
@@ -178,12 +190,58 @@ def make_tfrecords():
     train_folders = maybe_extract(train_filename)
     test_folders = maybe_extract(test_filename)
 
-    train_data_list = []
-    for file_folder in train_folders:
-        data,label = load_letter(file_folder, ord(os.path.basename(file_folder))-ord('A') )
-        train_data_list.append((data,label))
-        # concatenate the whole list and shuffle it.
-    train_dataset = np.concatenate([ train_data_list[i][0] for i in range(len(train_data_list))])
-    train_label = np.concatenate([train_data_list[i][1] for i in range(len(train_data_list))])
-    ## todo: shuffer the whole list.
-    return train_dataset,train_label
+    return_list=[]
+    print("processing train data")
+    if not (os.path.exists("train_data.tfrecords") and \
+        os.path.exists("valid_data.tfrecords")) or force :
+        train_data_list = []
+        for file_folder in train_folders:
+            print("processisng: {}".format(os.path.basename(file_folder)))
+            data,label = load_letter(file_folder, ord(os.path.basename(file_folder))-ord('A'), sample_num=sample_num)
+            train_data_list.append((data,label))
+            # concatenate the whole list and shuffle it.
+        train_dataset = np.concatenate([ train_data_list[i][0][0:-1000] for i in range(len(train_data_list))])
+        train_label = np.concatenate([train_data_list[i][1][0:-1000] for i in range(len(train_data_list))])
+        valid_dataset = np.concatenate([ train_data_list[i][0][-1000:] for i in range(len(train_data_list))])
+        valid_label = np.concatenate([train_data_list[i][1][-1000:] for i in range(len(train_data_list))])
+        ## todo: shuffer the whole list.
+        # train set
+        for data,label,tf_file_name in [(train_dataset,train_label,"train_data"),\
+                            (valid_dataset,valid_label,"valid_data")]:
+            rng_state = np.random.get_state()
+            np.random.shuffle(data)
+            np.random.set_state(rng_state)
+            np.random.shuffle(label)
+            # convert to tfrecoords
+            convert_to(data,label,tf_file_name)
+        return_list.extend([train_dataset,train_label,valid_dataset,valid_label])
+    else:
+        print("train and valid data alrealy exists, skip")
+
+    # process test data
+    print("process test data")
+    if not os.path.exists("test_data.tfrecords") or force:
+        train_data_list = []
+        for file_folder in test_folders:
+            print("processisng: {}".format(os.path.basename(file_folder)))
+            data,label = load_letter(file_folder, ord(os.path.basename(file_folder))-ord('A'), sample_num=-1)
+            train_data_list.append((data,label))
+            # concatenate the whole list and shuffle it.
+        test_dataset = np.concatenate([ train_data_list[i][0] for i in range(len(train_data_list))])
+        test_label = np.concatenate([train_data_list[i][1] for i in range(len(train_data_list))])
+        ## todo: shuffer the whole list.
+        # train set
+        rng_state = np.random.get_state()
+        np.random.shuffle(test_dataset)
+        np.random.set_state(rng_state)
+        np.random.shuffle(test_label)
+        # convert to tfrecoords
+        convert_to(test_dataset,test_label,"test_data")
+        return_list.extend([test_dataset,test_label])
+    else:
+        print("test data alrealy exists, skip")
+
+    return return_list
+
+if __name__ == "__main__":
+    make_tfrecords()
