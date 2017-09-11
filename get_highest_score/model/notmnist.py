@@ -10,6 +10,13 @@ def variable_on_cpu(name,initializer):
         return tf.Variable(name=name, initial_value=initializer)
 
 
+def variable_on_cpu_wd(name,initializer,wd=None):
+    var = variable_on_cpu(name,initializer)
+    if wd is not None:
+        l2_loss = tf.multiply(tf.nn.l2_loss(var), wd)
+        tf.add_to_collection("losses", l2_loss)
+    return var
+
 def variable_summaries(var,name):
   """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
   with tf.name_scope(name):
@@ -69,3 +76,4 @@ class ExamplesPerSecondHook(session_run_hook.SessionRunHook):
                 tf.logging.info('%s: %g (%g), step = %g', 'Average examples/sec',
                              average_examples_per_sec, current_examples_per_sec,
                              self._total_steps)
+

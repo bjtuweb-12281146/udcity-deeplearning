@@ -4,9 +4,10 @@ import functools
 # tensorflow importinges
 import tensorflow as tf
 
+FLAGS = tf.flags.FLAGS
 
 # my modules
-from notmnist import variable_on_cpu, variable_summaries
+from notmnist import variable_on_cpu, variable_on_cpu_wd,variable_summaries
 from notmnist_input import NUM_CLASS,IMAGE_HEIGHT
 
 
@@ -14,11 +15,12 @@ def model_fn_cnn(features, labels, mode):
     with tf.device("/gpu:0"):
         with tf.name_scope("conv1"):
             conv1_patch_size = 16
-            conv1_weights = variable_on_cpu("weights",
+            conv1_weights = variable_on_cpu_wd("weights",
                                             initializer=tf.truncated_normal(
                                                 shape=[2,2,1, conv1_patch_size],
                                                 dtype=tf.float32,
-                                                stddev=0.1))
+                                                stddev=0.1),
+                                                wd=FLAGS.weight_decay)
             conv1_biases = variable_on_cpu("biases",
                                            initializer=tf.constant(
                                                shape=[conv1_patch_size],
@@ -47,11 +49,12 @@ def model_fn_cnn(features, labels, mode):
             reshape = tf.reshape(pool1,[-1,feature_size])
             dim = reshape.shape[1].value
             fc1_nodes = 128
-            fc1_weights = variable_on_cpu("weights",
+            fc1_weights = variable_on_cpu_wd("weights",
                                           initializer=tf.truncated_normal(
                                               shape=[dim,fc1_nodes],
                                               dtype=tf.float32,
-                                              stddev=0.1))
+                                              stddev=0.1),
+                                             wd=FLAGS.weight_decay)
             fc1_biases = variable_on_cpu("biases",
                                          initializer=tf.constant(
                                              value=0,
@@ -64,11 +67,13 @@ def model_fn_cnn(features, labels, mode):
             variable_summaries(fc1_biases,"biases")
 
         with tf.name_scope("softmax_linear"):
-            sf_weights = variable_on_cpu("weights",
+            sf_weights = variable_on_cpu_wd("weights",
                                          initializer=tf.truncated_normal(
                                              shape=[fc1_nodes,NUM_CLASS],
                                              dtype=tf.float32,
-                                             stddev=0.1))
+                                             stddev=0.1),
+                                            wd=FLAGS.weight_decay
+                                         )
             sf_biases = variable_on_cpu("biases",
                                         initializer=tf.constant(
                                             value=0,
@@ -81,7 +86,9 @@ def model_fn_cnn(features, labels, mode):
         with tf.name_scope("loss"):
             loss = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels, logits=logits)
             loss_rm = tf.reduce_mean(loss)
-            tf.summary.scalar("loss",loss_rm)
+            tf.add_to_collection("losses",loss_rm)
+            total_loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
+            tf.summary.scalar("loss", total_loss)
 
         with tf.name_scope("optimizer"):
             global_step = tf.train.get_global_step()
@@ -91,7 +98,7 @@ def model_fn_cnn(features, labels, mode):
             optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
             tf.summary.scalar("learning_rate",learning_rate)
             # train_op = optimizer.minimize(loss_rm,global_step=tf.train.get_global_step())
-            grads = optimizer.compute_gradients(loss_rm)
+            grads = optimizer.compute_gradients(total_loss)
             # Apply gradients.
             apply_gradient_op = optimizer.apply_gradients(grads, global_step=global_step)
             for grad, var in grads:
@@ -112,7 +119,7 @@ def model_fn_cnn(features, labels, mode):
     return tf.estimator.EstimatorSpec(
         mode=mode,
         predictions=predictions,
-        loss=loss_rm,
+        loss=total_loss,
         train_op=apply_gradient_op,
         eval_metric_ops=metrics
         )
