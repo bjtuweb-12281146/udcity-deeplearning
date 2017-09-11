@@ -84,12 +84,16 @@ def model_fn_cnn(features, labels, mode):
             tf.summary.scalar("loss",loss_rm)
 
         with tf.name_scope("optimizer"):
-            optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.01)
+            global_step = tf.train.get_global_step()
+            starter_learning_rate = 0.1
+            learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step,
+                                                       100000, 0.96, staircase=True)
+            optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+            tf.summary.scalar("learning_rate",learning_rate)
             # train_op = optimizer.minimize(loss_rm,global_step=tf.train.get_global_step())
             grads = optimizer.compute_gradients(loss_rm)
-            # pdb.set_trace()
             # Apply gradients.
-            apply_gradient_op = optimizer.apply_gradients(grads, global_step=tf.train.get_global_step())
+            apply_gradient_op = optimizer.apply_gradients(grads, global_step=global_step)
             for grad, var in grads:
                 if grad is not None:
                     tf.summary.histogram(var.op.name + '/gradients', grad)
