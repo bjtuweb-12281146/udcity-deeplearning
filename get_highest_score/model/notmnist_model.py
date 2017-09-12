@@ -196,3 +196,25 @@ def model_fn_fc(features, labels, mode):
         train_op=apply_gradient_op,
         eval_metric_ops=metrics
         )
+
+
+def get_experiment_fn(train_input_fn,
+                      eval_input_fn,
+                      train_steps,
+                      eval_steps,
+                      train_hooks,
+                      model_fn):
+    def _experiment_fn(run_config,hparams):
+            del hparams
+            classifier = tf.estimator.Estimator(model_fn=model_fn,
+                                                config=run_config)
+            experiment = tf.contrib.learn.Experiment(
+                classifier,
+                train_input_fn=train_input_fn,
+                eval_input_fn=eval_input_fn,
+                train_steps=train_steps,
+                eval_steps=eval_steps
+            )
+            experiment.extend_train_hooks(train_hooks)
+            return experiment
+    return _experiment_fn
