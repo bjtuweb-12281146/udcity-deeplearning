@@ -3,6 +3,8 @@ import tensorflow as tf
 from tensorflow.python.training import basic_session_run_hooks
 from tensorflow.python.training import session_run_hook
 from tensorflow.python.training import training_util
+import logging
+import pdb
 
 
 def variable_on_cpu(name,initializer):
@@ -39,6 +41,7 @@ class ExamplesPerSecondHook(session_run_hook.SessionRunHook):
         if (every_n_seconds is None) == (every_n_steps is None):
             raise  ValueError("exactly one of every_n_seteps and "
                               " every_n_seconds should be provided")
+        # pdb.set_trace()
         self._timer = tf.train.SecondOrStepTimer(
             every_steps=every_n_steps,every_secs=every_n_seconds
         )
@@ -53,17 +56,18 @@ class ExamplesPerSecondHook(session_run_hook.SessionRunHook):
                 'Global step should be created to use StepCounterHook.')
 
     def before_run(self,run_context):
-        return basic_session_run_hooks.SessionRunArgs(self._global_step_tensor)
+        total_losses = tf.add_n(tf.get_collection("total_losses"))
+        #self._global_step_tensor,
+        return basic_session_run_hooks.SessionRunArgs([self._global_step_tensor,total_losses])
 
     def after_run(self, run_context, run_values):
         _ = run_context
-        global_step = run_values.results
-        # logging.error(global_step)
+        global_step = run_values.results[0]
+        loss = run_values.results[1]
         if self._timer.should_trigger_for_step(global_step):
+            # pdb.set_trace()
             elapsed_time, elapsed_steps = self._timer.update_last_triggered_step(
                 global_step)
-            # pdb.set_trace()
-            # logging.error("total steps: {}".format(self._total_steps))
             if elapsed_time is not None:
                 steps_per_sec = elapsed_steps / elapsed_time
                 self._step_train_time += elapsed_time
@@ -73,7 +77,11 @@ class ExamplesPerSecondHook(session_run_hook.SessionRunHook):
                     self._total_steps / self._step_train_time)
                 current_examples_per_sec = steps_per_sec * self._batch_size
                 # Average examples/sec followed by current examples/sec
-                tf.logging.info('%s: %g (%g), step = %g', 'Average examples/sec',
-                             average_examples_per_sec, current_examples_per_sec,
-                             self._total_steps)
+                tf.logging.warning(
+                    "Step:{}, Average_example_per_sec:{},Loss:{}".format(
+                        global_step,
+                        average_examples_per_sec,
+                        loss
+                    )
+                )
 

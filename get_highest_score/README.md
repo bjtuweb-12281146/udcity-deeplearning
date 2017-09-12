@@ -7,6 +7,8 @@ nonmnist_data.py
 
 prepare the dataset for this task
 
+test_input_queue.py => test if input?function is working well.
+
 
 
 

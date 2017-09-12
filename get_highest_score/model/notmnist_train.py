@@ -19,14 +19,14 @@ tf.flags.DEFINE_integer('input_data_thread', 8, 'Batch size for validation.')
 tf.flags.DEFINE_float('weight_decay',0.001,"l2 regularization")
 tf.flags.DEFINE_boolean('log_device_placement', False,'Whether to log device placement.')
 tf.flags.DEFINE_string("data_dir","","folder for data")
-tf.flags.DEFINE_string("train_dir","/temp/mymnist","folder for checkpoint file")
+tf.flags.DEFINE_string("train_dir","/tmp/mymnist","folder for checkpoint file")
 
 
 FLAGS = tf.flags.FLAGS
 
 
 def main(unused_argv):
-    tf.logging.set_verbosity(logging.INFO)
+    tf.logging.set_verbosity(logging.ERROR)
 
     # configuration for model
     gpu_options = tf.GPUOptions(allow_growth=True)
@@ -36,18 +36,18 @@ def main(unused_argv):
 
     config = tf.estimator.RunConfig()
     config = config.replace(session_config=sess_config)
-    # per_example_hook = ExamplesPerSecondHook(every_n_steps=10000)
-    # hooks = [per_example_hook]
+    per_example_hook = ExamplesPerSecondHook(FLAGS.train_batch_size,every_n_steps=100)
+    hooks = [per_example_hook]
     classifier = tf.estimator.Estimator(
         model_fn=model_fn_cnn,
         model_dir= FLAGS.train_dir,
-        config=config,
-        # hooks=hooks
+        config=config
     )
     print("start to train...")
     start_time = datetime.datetime.now()
     classifier.train(input_fn=functools.partial(input_fn,subset="training"),
-                     steps=FLAGS.train_steps
+                     steps=FLAGS.train_steps,
+                     hooks=hooks
                      )
 
     train_time = datetime.datetime.now() - start_time
