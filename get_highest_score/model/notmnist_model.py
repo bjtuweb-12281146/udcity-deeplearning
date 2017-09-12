@@ -88,7 +88,8 @@ def model_fn_cnn(features, labels, mode):
             loss_rm = tf.reduce_mean(loss)
             tf.add_to_collection("losses",loss_rm)
             total_loss = tf.add_n(tf.get_collection('losses'), name='total_loss')
-            tf.summary.scalar("loss", total_loss)
+            tf.add_to_collection("total_losses",total_loss)
+            tf.summary.scalar("total_loss", total_loss)
 
         with tf.name_scope("optimizer"):
             global_step = tf.train.get_global_step()
