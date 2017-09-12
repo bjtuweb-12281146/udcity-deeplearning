@@ -45,7 +45,8 @@ def main(unused_argv):
             input_fn=functools.partial(input_fn, subset="evaluation"),
             eval_steps=128,
             every_n_steps=101,
-            early_stopping_metric="accuracy"
+            early_stopping_metric="accuracy",
+            early_stopping_rounds = 1000
         )
         run_monitors = [validation_monitor]
         tf.contrib.learn.learn_runner.run(
