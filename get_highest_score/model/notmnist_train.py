@@ -9,7 +9,7 @@ import tensorflow as tf
 from tensorflow.contrib.learn.python.learn import estimators as contrib_estimator
 
 # my modules
-from notmnist_model import model_fn_fc,model_fn_cnn, get_experiment_fn
+from notmnist_model import model_fn_fc,model_fn_cnn,model_fn_cnn_experiment
 from notmnist_input import input_fn
 from notmnist import ExamplesPerSecondHook
 
@@ -38,27 +38,39 @@ def main(unused_argv):
     sess_config.log_device_placement = FLAGS.log_device_placement
 
     if FLAGS.run_experiment:
-        config = tf.contrib.learn.RunConfig(model_dir=FLAGS.train_dir)
+        config = tf.contrib.learn.RunConfig(model_dir=FLAGS.train_dir,save_checkpoints_steps=100)
         # config = config.replace(sess_config=sess_config)
         tf.logging.set_verbosity(logging.INFO)
+        classifier = tf.estimator.Estimator(
+            model_fn=model_fn_cnn,
+            model_dir= FLAGS.train_dir,
+            config=config
+        )
         validation_monitor = monitors.ValidationMonitor(
             input_fn=functools.partial(input_fn, subset="evaluation"),
             eval_steps=128,
-            every_n_steps=101,
+            every_n_steps=88,
             early_stopping_metric="accuracy",
             early_stopping_rounds = 1000
         )
-        run_monitors = [validation_monitor]
-        tf.contrib.learn.learn_runner.run(
-            get_experiment_fn(train_input_fn=functools.partial(input_fn,subset="training"),
-                              eval_input_fn=functools.partial(input_fn,subset="evaluation"),
-                              train_steps=FLAGS.train_steps,
-                              eval_steps=100,
-                              train_hooks=run_monitors,
-                              model_fn=model_fn_cnn
-                              ),
-            run_config = config
+        hooks = [ validation_monitor]
+        # you can use both core Estimator or contrib Estimator
+        # contrib_classifier = contrib_estimator.Estimator(
+        #                 model_fn=model_fn_cnn_experiment,
+        #                 model_dir=FLAGS.train_dir,
+        #                 config=config
+        #                 )
+        experiment = tf.contrib.learn.Experiment(
+            classifier,
+            train_input_fn=functools.partial(input_fn, subset="training"),
+            eval_input_fn=functools.partial(input_fn, subset="evaluation"),
+            train_steps=FLAGS.train_steps,
+            eval_steps=100,
+            min_eval_frequency=80,
+            train_monitors=hooks
+            # eval_metrics="accuracy"
         )
+        experiment.train_and_evaluate()
     else:
         start_time = datetime.datetime.now()
         config = tf.estimator.RunConfig()
