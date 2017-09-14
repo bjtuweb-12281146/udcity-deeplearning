@@ -101,13 +101,16 @@ def train():
           print (format_str % (datetime.now(), self._step, loss_value,
                                examples_per_sec, sec_per_batch))
 
+    hooks = [tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
+               tf.train.NanTensorHook(loss),
+               _LoggerHook()]
+
+    gpu_options = tf.GPUOptions(allow_growth=True)
     with tf.train.MonitoredTrainingSession(
         checkpoint_dir=FLAGS.train_dir,
-        hooks=[tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
-               tf.train.NanTensorHook(loss),
-               _LoggerHook()],
+        hooks=hooks,
         config=tf.ConfigProto(
-            log_device_placement=FLAGS.log_device_placement)) as mon_sess:
+            log_device_placement=FLAGS.log_device_placement,gpu_options=gpu_options)) as mon_sess:
       while not mon_sess.should_stop():
         mon_sess.run(train_op)
 
