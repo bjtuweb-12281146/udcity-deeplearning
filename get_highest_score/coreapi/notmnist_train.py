@@ -110,7 +110,8 @@ def train():
         checkpoint_dir=FLAGS.train_dir,
         hooks=hooks,
         config=tf.ConfigProto(
-            log_device_placement=FLAGS.log_device_placement,gpu_options=gpu_options)) as mon_sess:
+            log_device_placement=FLAGS.log_device_placement,gpu_options=gpu_options),
+    save_checkpoint_secs=300) as mon_sess:
       while not mon_sess.should_stop():
         mon_sess.run(train_op)
 
