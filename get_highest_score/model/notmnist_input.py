@@ -35,6 +35,7 @@ def read_and_decode(filename_queue):
 
 
 def distorted_inputs(is_training=True):
+    ## todo: file path have changed, modify the code.
     if is_training:
         filename_queue = tf.train.string_input_producer([os.path.join(FLAGS.data_dir, train_tfrecords_name)])
     else:
