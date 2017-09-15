@@ -29,6 +29,11 @@ IMAGE_SIZE = 28
 # Global constants describing the CIFAR-10 data set.
 NUM_CLASSES = 10
 
+FLAGS = tf.app.flags.FLAGS
+
+tf.app.flags.DEFINE_integer('input_data_thread', 4,
+                            """Number of batches to run.""")
+
 
 def read_notmnist(filename_queue):
   """
@@ -75,7 +80,7 @@ def _generate_image_and_label_batch(image, label, min_queue_examples,
   """
   # Create a queue that shuffles the examples, and then
   # read 'batch_size' images + labels from the example queue.
-  num_preprocess_threads = 2
+  num_preprocess_threads = FLAGS.input_data_thread
   if shuffle:
     images, label_batch = tf.train.shuffle_batch(
         [image, label],
