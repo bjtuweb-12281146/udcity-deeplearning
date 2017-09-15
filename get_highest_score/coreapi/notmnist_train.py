@@ -39,6 +39,7 @@ import time
 import tensorflow as tf
 
 import notmnist
+import numpy as np
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -47,6 +48,8 @@ tf.app.flags.DEFINE_string('train_dir', '/tmp/notmnist_train',
                            """and checkpoint.""")
 tf.app.flags.DEFINE_integer('max_steps', 1000000,
                             """Number of batches to run.""")
+tf.app.flags.DEFINE_integer('early_stopping_step', 100000,
+                            """Number patience for ealy stopping""")
 tf.app.flags.DEFINE_boolean('log_device_placement', False,
                             """Whether to log device placement.""")
 tf.app.flags.DEFINE_integer('log_frequency', 10,
@@ -82,19 +85,22 @@ def train():
         self._step = -1
         self._start_time = time.time()
         self.gobal_step = tf.train.get_global_step()
+        self.best_loss = np.inf
+        self.stopping_step=0
+        self.should_stop=False
 
       def before_run(self, run_context):
         self._step += 1
         return tf.train.SessionRunArgs([loss,self.gobal_step])  # Asks for loss value.
 
       def after_run(self, run_context, run_values):
+        loss_value = run_values.results[0]
+        global_step = run_values.results[1]
+
         if self._step % FLAGS.log_frequency == 0:
           current_time = time.time()
           duration = current_time - self._start_time
           self._start_time = current_time
-
-          loss_value = run_values.results[0]
-          global_step = run_values.results[1]
           examples_per_sec = FLAGS.log_frequency * FLAGS.batch_size / duration
           sec_per_batch = float(duration / FLAGS.log_frequency)
 
@@ -102,6 +108,15 @@ def train():
                         'sec/batch)')
           print (format_str % (datetime.now(), global_step, loss_value,
                                examples_per_sec, sec_per_batch))
+          if (loss_value < self.best_loss):
+            self.stopping_step = 0
+            self.best_loss = loss_value
+          else:
+            self.stopping_step += 1
+          if self.stopping_step >= FLAGS.early_stopping_step:
+            self.should_stop = True
+            print("Early stopping is trigger at step: {} loss:{}".format(global_step,loss_value))
+            run_context.request_stop()
 
     hooks = [tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
                tf.train.NanTensorHook(loss),
