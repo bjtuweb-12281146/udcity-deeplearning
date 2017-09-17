@@ -62,6 +62,19 @@ def read_notmnist(filename_queue):
   return image, label
 
 
+def test_read_notmnist(data_dir, batch_size):
+  filenames = [os.path.join(data_dir, "valid_data.tfrecords")]
+  for f in filenames:
+    if not tf.gfile.Exists(f):
+      raise ValueError('Failed to find file: ' + f)
+
+  # Create a queue that produces the filenames to read.
+  filename_queue = tf.train.string_input_producer(filenames)
+
+  # Read examples from files in the filename queue.
+  uint8image,label = read_notmnist(filename_queue)
+  return uint8image,label
+
 def _generate_image_and_label_batch(image, label, min_queue_examples,
                                     batch_size, shuffle):
   """Construct a queued batch of images and labels.
@@ -157,7 +170,7 @@ def distorted_inputs(data_dir, batch_size):
   # Generate a batch of images and labels by building up a queue of examples.
   return _generate_image_and_label_batch(float_image, label,
                                          3000, batch_size,
-                                         shuffle=True)
+                                         shuffle=False)
 
 
 def inputs(eval_data, data_dir, batch_size):
