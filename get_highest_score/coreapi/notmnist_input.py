@@ -69,7 +69,7 @@ def test_read_notmnist(data_dir, batch_size):
       raise ValueError('Failed to find file: ' + f)
 
   # Create a queue that produces the filenames to read.
-  filename_queue = tf.train.string_input_producer(filenames)
+  filename_queue = tf.train.string_input_producer(filenames,num_epochs=1)
 
   # Read examples from files in the filename queue.
   uint8image,label = read_notmnist(filename_queue)

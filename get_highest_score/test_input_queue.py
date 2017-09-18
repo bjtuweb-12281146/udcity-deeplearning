@@ -29,13 +29,14 @@ tf.flags.DEFINE_string("data_dir","model","folder for data")
 FLAGS = tf.flags.FLAGS
 
 def main(unused_args):
-    image,label = distorted_inputs(data_dir=FLAGS.data_dir,batch_size=FLAGS.train_batch_size)
+    # image,label = distorted_inputs(data_dir=FLAGS.data_dir,batch_size=FLAGS.train_batch_size)
     image,label = test_read_notmnist(data_dir=FLAGS.data_dir,batch_size=FLAGS.train_batch_size)
 
     print("start run")
     sess = tf.Session()
+    init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
+    sess.run(init_op)
     tf.train.start_queue_runners(sess=sess)
-    sess.run(tf.global_variables_initializer())
     all_pass = True
     for i in range(100000000):
         # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
