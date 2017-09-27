@@ -80,7 +80,7 @@ def main(unused_argv):
         config = tf.estimator.RunConfig()
         config = config.replace(session_config=sess_config)
         per_example_hook = ExamplesPerSecondHook(FLAGS.train_batch_size, every_n_steps=100)
-        hooks = [per_example_hook]
+        hooks = [per_example_hook,saver_hook]
         classifier = tf.estimator.Estimator(
             model_fn=model_fn_cnn,
             model_dir= FLAGS.train_dir,
