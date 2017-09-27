@@ -73,6 +73,10 @@ def main(unused_argv):
         experiment.train_and_evaluate()
     else:
         start_time = datetime.datetime.now()
+        saver_hook = tf.train.CheckpointSaverHook(
+        checkpoint_dir=FLAGS.train_dir,
+        save_steps=100,
+        )
         config = tf.estimator.RunConfig()
         config = config.replace(session_config=sess_config)
         per_example_hook = ExamplesPerSecondHook(FLAGS.train_batch_size, every_n_steps=100)
@@ -80,7 +84,8 @@ def main(unused_argv):
         classifier = tf.estimator.Estimator(
             model_fn=model_fn_cnn,
             model_dir= FLAGS.train_dir,
-            config=config
+            config=config,
+
         )
         classifier.train(input_fn=functools.partial(input_fn,subset="training"),
                          steps=FLAGS.train_steps,
